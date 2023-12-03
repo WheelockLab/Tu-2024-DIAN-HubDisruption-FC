@@ -1,0 +1,282 @@
+---
+title: "GAM_Figure5"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+date: '2023-09-20'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# tutorial https://noamross.github.io/gams-in-r-course/chapter1
+```{r loaddata}
+library(mgcv)
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(lmerTest)
+setwd("/Volumes/wheelock/people/Cindy/DIAN/Final")
+HDI = read.csv('./HDI_individual_acrossthreS(z-score).csv')
+covariates = read.csv('./regression_covariates.csv')
+```
+# get data structure
+```{r makedf}
+df_all=data.frame(covariates$CCS,covariates$PIB_fSUVR_rsf_TOT_CORTMEAN,HDI$thre5,covariates$Sex.M.,covariates$EYO,covariates$Education,covariates$DVARS,covariates$Minutes,covariates$Age,factor(covariates$fam_mutation),factor(covariates$mutation),covariates$MMSE,covariates$MEMUNITS,covariates$WAIS,covariates$WORDDEL,covariates$family)
+names(df_all)<-c("CCS","PIB","HDI","Sex_M","EYO","Education","DVARS","Minutes","Age","fam_mutation","mutation","MMSE","MEMUNITS","WAIS","WORDDEL","family")
+
+df_MC<-filter(df_all,mutation==1)
+df_NC<-filter(df_all,mutation==0)
+
+mc_clr <- rgb(0.8471,0.7020,0.3961)
+nc_clr <- rgb(0.3529,0.7059,0.6745)
+
+
+```
+
+# let's do table 3 first (there are a few attempts at the end for that too with different models)
+```{r linear mixed model with the random effect of family}
+model <- lmer(CCS~
++ Sex_M
++ HDI
++ Age
++ DVARS
++ Education+(1| family), data = df_MC)
+summary(model)
+
+null_model <- lmer(CCS~
++ Sex_M
++ Age
++ DVARS
++ Education+(1| family), data = df_MC)
+
+anova(model,null_model)
+```
+
+```{r random effect of family?}
+set.seed(10)
+gamm_model <-gamm(CCS~
++ Sex_M
++ Age
++ HDI
++ DVARS
++ Education,
+random=list(family=~1),
+data=df_MC, method="REML"
+)
+summary(gamm_model$lme)
+summary(gamm_model$gam)
+random_effects<-ranef(gamm_model$lme)
+plot(random_effects)
+```
+# Section A: Regression of variables on EYO Figure 5
+```{r fit GAMM} 
+#lme + gam
+xvarname = 'EYO'
+yvarname = 'PiB'#expression(kappa [s])
+set.seed(10)
+gamm_model <-gamm(PIB~
+mutation
++ s(EYO, by=mutation)
++ Sex_M
++ Education,
+random=list(fam_id=~1),
+data=df_all, method="REML"
+)
+
+random_effects<-ranef(gamm_model$lme)
+gam_mod_all<-gamm_model$gam
+
+summary(gam_mod_all)
+```
+
+```{r plot random effect}
+plot(random_effects)
+```
+
+```{r function for simultaneous CI}
+rmvn <- function(n, mu, sig) { ## MVN random deviates
+  L <- mroot(sig)
+  m <- ncol(L)
+  t(mu + L %*% matrix(rnorm(m*n), m, n))
+}
+get_splineBasedCI <- function(Model, Forecast_DF){
+  Vb <- vcov(Model)
+  pred <- predict(Model, Forecast_DF, se.fit = TRUE)
+  se.fit <- pred$se.fit
+  set.seed(42)
+  N <- 10000
+  BUdiff <- rmvn(N, mu = rep(0, nrow(Vb)), sig = Vb)
+  Cg <- predict(Model, Forecast_DF, type = "lpmatrix")
+  simDev <- Cg %*% t(BUdiff)
+  absDev <- abs(sweep(simDev, 1, se.fit, FUN = "/"))
+  masd <- apply(absDev, 2L, max)
+  crit <- quantile(masd, prob = 0.95, type = 8)
+  pred <- transform(cbind(data.frame(pred), Forecast_DF),
+                    uprP = fit + (2 * se.fit),
+                    lwrP = fit - (2 * se.fit),
+                    uprS = fit + (crit * se.fit),
+                    lwrS = fit - (crit * se.fit))
+  
+  return(pred)
+}
+```
+
+```{r confint}
+# simultaneous confidence interval https://fromthebottomoftheheap.net/2016/12/15/simultaneous-interval-revisited/
+# New data frame for 'EYO' values
+newdata <- with(df_all, data.frame(
+  EYO = rep(seq(min(EYO), max(EYO), length.out = 100), 2),  # sequence from min to max of 'EYO'
+  Sex_M = rep(c("true", "false"), each = 100),
+  DVARS = rep(median(DVARS), 200),
+  Education = rep(median(Education), 200)  # using median or any other constant value
+  # repeat for other covariates, if any
+))
+# Add 'mutation' groups
+newdata_NC <- newdata
+newdata_NC$mutation <- 0  # For the first group
+
+newdata_MC <-newdata
+newdata_MC$mutation <- 1  # For the second group
+
+pred_NC_M <- get_splineBasedCI(gam_mod_all,newdata_NC[1:100,])
+pred_NC_F <- get_splineBasedCI(gam_mod_all,newdata_NC[101:200,])
+pred_NC<-pred_NC_M
+pred_NC$lwrP = (pred_NC_M$lwrP+pred_NC_F$lwrP)/2
+pred_NC$lwrS = (pred_NC_M$lwrS+pred_NC_F$lwrS)/2
+pred_NC$uprP = (pred_NC_M$uprP+pred_NC_F$uprP)/2
+pred_NC$uprS = (pred_NC_M$uprS+pred_NC_F$uprS)/2
+pred_MC_M <- get_splineBasedCI(gam_mod_all,newdata_MC[1:100,])
+pred_MC_F <- get_splineBasedCI(gam_mod_all,newdata_MC[101:200,])
+pred_MC<-pred_MC_M
+pred_MC$lwrP = (pred_MC_M$lwrP+pred_MC_F$lwrP)/2
+pred_MC$lwrS = (pred_MC_M$lwrS+pred_MC_F$lwrS)/2
+pred_MC$uprP = (pred_MC_M$uprP+pred_MC_F$uprP)/2
+pred_MC$uprS = (pred_MC_M$uprS+pred_MC_F$uprS)/2
+```
+
+```{r plot sim CI}
+theme_set(theme_classic(base_size = 20))
+ggplot() + # simultaneous CI
+    geom_ribbon(data = pred_NC,aes(x=EYO,ymin = lwrS, ymax = uprS,fill = 'NC'), alpha = 0.5) +
+    geom_ribbon(data = pred_MC,aes(x=EYO,ymin = lwrS, ymax = uprS,fill = 'MC'), alpha = 0.5)+
+    geom_line(data=pred_NC,aes(x=EYO,y=fit,color='NC'))+
+    geom_line(data=pred_MC,aes(x=EYO,y=fit,color='MC'))+
+    scale_fill_manual(name = "mutation", 
+                      values = c('NC' = nc_clr, 'MC' = mc_clr),
+                      labels = c('NC' = 'NC', 'MC' = 'MC')) +
+    scale_color_manual(name = "mutation", 
+                     values = c('NC' = nc_clr, 'MC' = mc_clr),
+                     labels = c('NC' = 'NC', 'MC' = 'MC')) +
+    labs(x = xvarname, y = yvarname)
+pred_NC$EYO[pred_NC$lwrS>pred_MC$uprS][1]
+pred_NC$EYO[pred_NC$uprS<pred_MC$lwrS][1]
+```
+
+
+
+```{r plot}
+
+theme_set(theme_classic(base_size = 20))
+
+p_obj <-plot(gam_mod_MC,residuals = TRUE,pch = 1,shade = TRUE,shade.col=mc_clr,shift = coef(gam_mod_MC)[1])
+p_obj <- p_obj[[1]] # just one smooth so select the first component
+sm_df <- as.data.frame(p_obj[c("x", "se", "fit")])
+sm_df$fit<-sm_df$fit+coef(gam_mod_MC)[1]
+data_df <- as.data.frame(p_obj[c("raw", "p.resid")])
+data_df$p.resid <-data_df$p.resid+coef(gam_mod_MC)[1]
+
+p_obj2<-plot(gam_mod_NC,residuals = TRUE,pch = 1,shade = TRUE,shade.col=nc_clr,shift = coef(gam_mod_NC)[1])
+p_obj2<-p_obj2[[1]]
+sm_df2 <- as.data.frame(p_obj2[c("x", "se", "fit")])
+sm_df2$fit<-sm_df2$fit+coef(gam_mod_NC)[1]
+data_df2 <- as.data.frame(p_obj2[c("raw", "p.resid")])
+data_df2$p.resid <-data_df2$p.resid+coef(gam_mod_NC)[1]
+
+## plot
+ggplot(sm_df, aes(x = x, y = fit)) +
+  geom_point(data = data_df%>% filter(raw>-20 & raw<10), mapping = aes(x = raw, y = p.resid,color = 'MC')) +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,color = mc_clr,fill = mc_clr) +
+  geom_line(color = mc_clr) +
+  labs(x = xvarname, y = yvarname)+
+  geom_point(data = data_df2%>% filter(raw>-20 & raw<10), mapping = aes(x = raw, y = p.resid,color = 'NC')) +
+  geom_ribbon(data = sm_df2,aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,color = nc_clr,fill = nc_clr) +
+  geom_line(data = sm_df2,color = nc_clr)+
+  scale_color_manual(name = "Subjects", 
+                      breaks = c("MC", "NC"), 
+                      values = c( "MC" = mc_clr, "NC" = nc_clr ),
+                      labels = c("MC", "NC"))+
+  theme(text = element_text(family="Arial"))
+```
+
+```{r find divergence}
+EYO<-seq(from = -40, to = 20, by = 0.1)
+df_regint<-data.frame(EYO)
+MC_pred<-predict.gam(gam_mod_MC,df_regint,se.fit = TRUE)
+NC_pred<-predict.gam(gam_mod_NC,df_regint,se.fit = TRUE)
+EYO[(MC_pred$fit+MC_pred$se.fit)<(NC_pred$fit-NC_pred$se.fit)][1]
+
+```
+# Section B: Regression of hub disruption index on Cognitive Composite Score (CCS) - Table 3
+```{r HDI~CCS}
+set.seed(10)
+xvarname <-expression(kappa [s])#'EYO'
+yvarname<-'CCS'
+gam_mod_MC <-gam(CCS~s(HDI)+s(Education,k=14)+s(Age)+Sex_M+s(DVARS),data = df_MC,method = "REML")
+gam_mod_NC <-gam(CCS~s(HDI)+s(Education)+s(Age)+Sex_M+s(DVARS),data = df_NC,method = "REML")
+summary(gam_mod_MC)
+summary(gam_mod_NC)
+```
+```{r check basis2}
+gam.check(gam_mod_MC)
+gam.check(gam_mod_NC)
+```
+
+```{r check concurvity}
+# when there are multiple variables
+concurvity(gam_mod_MC,full = TRUE) # all variables
+concurvity(gam_mod_MC,full = FALSE) # pariwise
+```
+
+```{r plot2}
+plot(gam_mod_MC,residuals = TRUE,pch = 1,shade = TRUE,shade.col=mc_clr,shift = coef(gam_mod_MC)[1])
+plot(gam_mod_NC,residuals = TRUE,pch = 1,shade = TRUE,shade.col=nc_clr,shift = coef(gam_mod_NC)[1])
+```
+
+```{r plot just the first variable}
+theme_set(theme_classic(base_size = 20))
+
+p_obj <-plot(gam_mod_MC,select = 1, residuals = TRUE,pch = 1,shade = TRUE,shade.col=mc_clr,shift = coef(gam_mod_MC)[1])
+p_obj <- p_obj[[1]] # just one smooth so select the first component
+sm_df <- as.data.frame(p_obj[c("x", "se", "fit")])
+sm_df$fit<-sm_df$fit+coef(gam_mod_MC)[1]
+data_df <- as.data.frame(p_obj[c("raw", "p.resid")])
+data_df$p.resid <-data_df$p.resid+coef(gam_mod_MC)[1]
+
+p_obj2<-plot(gam_mod_NC,select = 1,residuals = TRUE,pch = 1,shade = TRUE,shade.col=nc_clr,shift = coef(gam_mod_NC)[1])
+p_obj2<-p_obj2[[1]]
+sm_df2 <- as.data.frame(p_obj2[c("x", "se", "fit")])
+sm_df2$fit<-sm_df2$fit+coef(gam_mod_NC)[1]
+data_df2 <- as.data.frame(p_obj2[c("raw", "p.resid")])
+data_df2$p.resid <-data_df2$p.resid+coef(gam_mod_NC)[1]
+
+## plot
+ggplot(sm_df, aes(x = x, y = fit)) +
+  geom_point(data = data_df, mapping = aes(x = raw, y = p.resid,color = 'MC')) +
+  geom_ribbon(aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,color = mc_clr,fill = mc_clr) +
+  geom_line(color = mc_clr) +
+  labs(x = xvarname, y = yvarname)+
+  geom_point(data = data_df2, mapping = aes(x = raw, y = p.resid,color = 'NC')) +
+  geom_ribbon(data = sm_df2,aes(ymin = fit - se, ymax = fit + se, y = NULL),
+              alpha = 0.3,color = nc_clr,fill = nc_clr) +
+  geom_line(data = sm_df2,color = nc_clr)+
+  scale_color_manual(name = "Subjects", 
+                      breaks = c("MC", "NC"), 
+                      values = c( "MC" = mc_clr, "NC" = nc_clr ),
+                      labels = c("MC", "NC"))+
+  theme(text = element_text(family="Arial"))
+```
