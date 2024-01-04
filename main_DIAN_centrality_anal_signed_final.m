@@ -2,7 +2,6 @@
 % reference: Rubinov & Sporns, 2011 NeuroImage
 clear;close all;
 %% Load data and correct for data amount
-load('IM_13nets_246_newcolor.mat'); % load parcellation based on Seitzman 2020 300 ROI
 allROI = readtable('DIAN_Seitzman_246.xlsx');
 exclusion_id = [72,145];% the two subjects that are the only ones for their sites
 

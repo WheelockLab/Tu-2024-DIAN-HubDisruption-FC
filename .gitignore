@@ -3,3 +3,4 @@ regression_covariates.csv
 HDI_individual_acrossthreS(z-score).csv
 Data/*
 .DS_Store
+HDI_results/*

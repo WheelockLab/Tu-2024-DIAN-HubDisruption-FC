@@ -30,14 +30,14 @@ for igroup = [1:6]
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(S_ref);
-            mstr2 = 'S(z-score)';
+            m2 = S_ref;
+            mstr2 = 'S';
         case 'Pc'
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(Pc_ref);
-            mstr2 = 'Pc(z-score)';
+            m2 = Pc_ref;
+            mstr2 = 'Pc';
         case 'Z'
             m = S;
             mref = S_ref;
@@ -47,7 +47,7 @@ for igroup = [1:6]
     end
     
     testgroup = bins==igroup;
-    differencetest = (mean(m(testgroup,:))./mref-1)*100;
+    differencetest = mean(m(testgroup,:))-mref;
     
     outliers = false(size(differencetest));
     
@@ -80,12 +80,15 @@ for igroup = [1:6]
     xlabel(sprintf('<%s>,%s',grouplabel{4},mstr2));
 end
 linkaxes(ax,'xy');
-xl = xlim; yl = ylim;
+ylim([-0.03,0.02])
+xlim([0,0.08])
+xl = xlim; 
+yl = ylim;
 subplot(2,3,1);
-ylabel(sprintf('%% %s difference',mstr));
+ylabel(sprintf('%s difference',mstr));
 
 %% test for interaction
-differencetest = arrayfun(@(i)(mean(m(bins==i,:))./mref-1)*100,1:6,'UniformOutput',false);
+differencetest = arrayfun(@(i)mean(m(bins==i,:))-mref,1:6,'UniformOutput',false);
 
 tbl = table();
 tbl.agebin = repelem([1:6],Nroi)';
@@ -111,14 +114,14 @@ for igroup = 7:8 % abeta+ or abeta-
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(S_ref);
-            mstr2 = 'S(z-score)';
+            m2 = S_ref;
+            mstr2 = 'S';
         case 'Pc'
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(Pc_ref);
-            mstr2 = 'Pc(z-score)';
+            m2 = Pc_ref;
+            mstr2 = 'Pc';
         case 'Z'
             m = S;
             mref = S_ref;
@@ -131,7 +134,7 @@ for igroup = 7:8 % abeta+ or abeta-
     else
         testgroup = abetaposCDR0;
     end
-    differencetest = (mean(m(testgroup,:))./mref-1)*100;
+    differencetest = mean(m(testgroup,:))-mref;
     
     outliers = false(size(differencetest));
     
@@ -159,15 +162,15 @@ for igroup = 7:8 % abeta+ or abeta-
     text(0.5,0.8,{sprintf('\\kappa_{%s} = %1.1f',mstr,HDI.slope(igroup));sprintf('R^2 = %1.2f',HDI.R2(igroup))},'Units','Normalized','FontSize',12)
     xlabel(sprintf('<%s>,%s',grouplabel{4},mstr2));
     ylim(yl);
-    xlim(xl)
-    yticks([-100,0,100]);
+%     xlim(xl)
+%     yticks([-100,0,100]);
 end
 linkaxes(ax,'xy');
 subplot(2,3,1);
 ylabel(sprintf('%% %s difference',mstr));
-print(gcf,fullfile(savedir,['hub_disruption_index(ratio)_',mstr,'_',mstr2,'_AbetaCDR0groups']),'-dpdf');
+% print(gcf,fullfile(savedir,['hub_disruption_index(ratio)_',mstr,'_',mstr2,'_AbetaCDR0groups']),'-dpdf');
 
-differencetest = [mean(m(abetanegCDR0,:)./mref-1)';mean(m(abetaposCDR0,:)./mref-1)'];
+differencetest = [mean(m(abetanegCDR0,:))-mref,mean(m(abetaposCDR0,:))-mref]';
 mdl = fitlm([repmat(m2',2,1),[zeros(Nroi,1);ones(Nroi,1)]],differencetest,'interactions');
 anova_stats = anova(mdl)
 
@@ -181,14 +184,14 @@ for isubj = [1:size(S,1)] % change this
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(S_ref);
-            mstr2 = 'S(z-score)';
+            m2 = S_ref;
+            mstr2 = 'S';
         case 'Pc'
             m = S;
             mref = S_ref;
             mstr = 'S';
-            m2 = zscore(Pc_ref);
-            mstr2 = 'Pc(z-score)';
+            m2 = Pc_ref;
+            mstr2 = 'Pc';
         case 'Z'
             m = S;
             mref = S_ref;
@@ -197,7 +200,7 @@ for isubj = [1:size(S,1)] % change this
             mstr2 = 'Z';
     end
     
-    differencetest = [m(isubj,:)./mref-1]*100;
+    differencetest = m(isubj,:)-mref;
     [b_test,b_testInt,~,~,stats_MC] = regress(differencetest',[ones(size(mref,2),1),m2']);
     p_MC(isubj) = stats_MC(3);
     
@@ -209,8 +212,8 @@ for isubj = [1:size(S,1)] % change this
     HDI.slopelower(isubj) = b_testInt(2,2);HDI.interceptlower(isubj) = b_testInt(1,2);
     HDI.r(isubj) = r;
 end
-% mkdir(['./HDI_results/individuals/',mstr,'_',mstr2])
-% save(['./HDI_results/individuals/',mstr,'_',mstr2,'/HDI_CDRgroup_threshold',sprintf('%1.2f',thresholds),'.mat'],'HDI','thresholds','savedir')
+mkdir(['./HDI_results/individuals/',mstr,'_',mstr2])
+save(['./HDI_results/individuals/',mstr,'_',mstr2,'/HDI_CDRgroup_threshold',sprintf('%1.2f',thresholds),'.mat'],'HDI','thresholds','savedir')
 return
 %%  Plot errorbar + scatter (jitterplot)
 v  = arrayfun(@(ii)HDI.slope(bins==ii),1:max(bins),'UniformOutput',false);
@@ -290,7 +293,7 @@ for j = 1:3
         'MarkerFaceColor',[0.5 0.5 0.5],'MarkerFaceAlpha',0.4);
 end
 
-Plot.sigstar(mat2cell(comparison(:,1:2),ones(1,size(comparison,1)),2),comparison(:,3))
+sigstar(mat2cell(comparison(:,1:2),ones(1,size(comparison,1)),2),comparison(:,3))
 xticks(1:3);
 xlim([0,4]);
 
@@ -334,7 +337,7 @@ for j = 4:6
     scatter(x,v{j},10,'filled',...
         'MarkerFaceColor',[0.5 0.5 0.5],'MarkerFaceAlpha',0.4);
 end
-Plot.sigstar(mat2cell(comparison(:,1:2),ones(1,size(comparison,1)),2),comparison(:,3))
+sigstar(mat2cell(comparison(:,1:2),ones(1,size(comparison,1)),2),comparison(:,3))
 xticks(1:3);
 xlim([0,4]);
 xticklabels(cellfun(@(C)C(4:end),grouplabel(4:6),'UniformOutput',false));
@@ -395,11 +398,11 @@ xticklabels({'A\beta-','A\beta+'});
 ylabel(['\kappa_{',mstr,'}'])
 % legend('MC(CDR=0)','location','northwestoutside');
 set(gca,'FontSize',12,'FontWeight','Bold');
-ylim([-40,40])
+% ylim([-40,40])
 
 [h,p] = ttest2(mval(abetaposCDR0),mval(abetanegCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
 
-print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_abeta']),'-dpdf'); % comparing pairwise
+% print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_abeta']),'-dpdf'); % comparing pairwise
 
 %% Plot e4 + and e4 - MC CDR = 0 (checked with Util.normality test that the distribution is still normal)
 e4status = any(subjectdata.apoe==[24,34,44],2);
@@ -444,7 +447,7 @@ text(2,mean(mval(apoe4negCDR0))+1.2*std(mval(apoe4negCDR0)),nstars,'Color','k');
 x = 0.05.*randn(sum(apoe4negCDR0),1)+2;
 scatter(x,mval(apoe4negCDR0),10,'filled',...
     'MarkerFaceColor',[0.5 0.5 0.5],'MarkerFaceAlpha',0.4);
-Plot.hline(0);
+hline(0);
 xlim([0,3]);
 xticks([1,2]);
 xticklabels({'\epsilon4+','\epsilon4-'});
@@ -454,4 +457,4 @@ set(gca,'FontSize',12,'FontWeight','Bold');
 
 [h,p] = ttest2(mval(apoe4posCDR0),mval(apoe4negCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
 
-print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_apoe4']),'-dpdf'); % comparing pairwise
+% print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_apoe4']),'-dpdf'); % comparing pairwise
