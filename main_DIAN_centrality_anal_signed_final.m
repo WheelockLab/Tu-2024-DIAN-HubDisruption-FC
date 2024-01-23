@@ -1,13 +1,19 @@
 %% main_DIAN_centrality_anal_signed
-% reference: Rubinov & Sporns, 2011 NeuroImage
+% data available upon request from Dominantly Inherited Alzhiemer Network
+% Consortium
 clear;close all;
+here = pwd;
+
+cd '/data/wheelock/data1/people/Cindy/DIAN'
 %% Load data and correct for data amount
 allROI = readtable('DIAN_Seitzman_246.xlsx');
 exclusion_id = [72,145];% the two subjects that are the only ones for their sites
+load('IM_13nets_246_newcolor_MNI.mat'); % load parcellation based on Seitzman 2020 300 ROI
 
-subjectdata = readtable('MRI_subjectlist_N207_221213.xlsx');% subject info
+subjectdata = readtable('/data/wheelock/data1/people/Cindy/DIAN/MRI_subjectlist_N207_240105.xlsx');
 subjectdata(exclusion_id,:)=[];
 
+% savedir = './postcovbat_individual_signed_complete_Z_';
 savedir = './postcovbat_individual_signed_mst_0.05_Z_';
 Centrality = load(fullfile(savedir,'Centrality.mat'));
 Centrality = Util.excludesubjects(Centrality,exclusion_id); 
@@ -48,18 +54,13 @@ Scorr = reshape(Scorr,size(S));
 model = fitlm(X(:),Pc(:));
 Pccorr = model.Residuals.raw+model.Coefficients.Estimate(1);
 Pccorr = reshape(Pccorr,size(Pc));
-Pc = Pccorr;
+warning('Pc not corrected');
 
 FC = reshape(rmatGroupMean,[],Nsubj)';
 X = repmat(subjectdata.totalMinutes,1,length(UDidx));
 model = fitlm(X(:),Util.unroll(FC(:,UDidx)));
 FCUD_corr = model.Residuals.raw+model.Coefficients.Estimate(1);
 FCUD_corr = reshape(FCUD_corr,size(X));
-
-mFC = mean(FC(:,UDidx));
-DMNidx = find((IM.key(:,2)==5)*(IM.key(:,2)==5)');
-DMNidx = intersect(UDidx,DMNidx);
-mFC_DMN = mean(FC(:,DMNidx));
 
 %% Intermodule and intramodule strength
 
@@ -90,5 +91,6 @@ end
 withinS(isnan(withinS))=0;
 betweenS(isnan(betweenS))=0;
 
+cd(here)
 %% plot figures
 return

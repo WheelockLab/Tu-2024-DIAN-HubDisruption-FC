@@ -9,11 +9,7 @@ refgroup = bins==4;
 refgroupstr = 'YoungNC';
 
 S = Scorr;
-try
-Spos = Scorr_pos;
-Sneg = Scorr_neg;
-catch
-end
+Pc = Pccorr;
 
 S_ref = mean(S(refgroup,:));
 Pc_ref = mean(Pc(refgroup,:));
@@ -83,6 +79,8 @@ linkaxes(ax,'xy');
 xl = xlim; yl = ylim;
 subplot(2,3,1);
 ylabel(sprintf('%% %s difference',mstr));
+% mkdir(['./HDI_results/',mstr,'_',mstr2])
+% save(['./HDI_results/',mstr,'_',mstr2,'/HDI_CDRgroup_threshold',sprintf('%1.2f',thresholds),'.mat'],'HDI','thresholds','savedir')
 
 %% test for interaction
 differencetest = arrayfun(@(i)(mean(m(bins==i,:))./mref-1)*100,1:6,'UniformOutput',false);
@@ -165,7 +163,7 @@ end
 linkaxes(ax,'xy');
 subplot(2,3,1);
 ylabel(sprintf('%% %s difference',mstr));
-print(gcf,fullfile(savedir,['hub_disruption_index(ratio)_',mstr,'_',mstr2,'_AbetaCDR0groups']),'-dpdf');
+% print(gcf,fullfile(savedir,['hub_disruption_index(ratio)_',mstr,'_',mstr2,'_AbetaCDR0groups']),'-dpdf');
 
 differencetest = [mean(m(abetanegCDR0,:)./mref-1)';mean(m(abetaposCDR0,:)./mref-1)'];
 mdl = fitlm([repmat(m2',2,1),[zeros(Nroi,1);ones(Nroi,1)]],differencetest,'interactions');
@@ -397,15 +395,14 @@ ylabel(['\kappa_{',mstr,'}'])
 set(gca,'FontSize',12,'FontWeight','Bold');
 ylim([-40,40])
 
-[h,p] = ttest2(mval(abetaposCDR0),mval(abetanegCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
-
-print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_abeta']),'-dpdf'); % comparing pairwise
+[h,p,ci,stats] = ttest2(mval(abetaposCDR0),mval(abetanegCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
+d = Util.computeCohen_d(mval(abetaposCDR0),mval(abetanegCDR0),'independent')
+% print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_abeta']),'-dpdf'); % comparing pairwise
 
 %% Plot e4 + and e4 - MC CDR = 0 (checked with Util.normality test that the distribution is still normal)
 e4status = any(subjectdata.apoe==[24,34,44],2);
 apoe4posCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & e4status;
 apoe4negCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & (~e4status);
-
 
 mval = HDI.slope;
 

@@ -1,6 +1,5 @@
-MRI_subjectlist_N207_221213.xlsx
-regression_covariates.csv
-HDI_individual_acrossthreS(z-score).csv
 Data/*
 .DS_Store
 HDI_results/*
+Revision/*
+.Rhistory

@@ -22,14 +22,14 @@ actinvdegS = meanS.*(1-rate_targetednonhubs); % final strength with a smaller ra
 
 
 %% Original HDI (Figure 1B)
-brandom = regress([randomdegS-meanS]',[ones(size(zmeanS))',zmeanS']);
-btargetedhubs = regress([actdegS-meanS]',[ones(size(zmeanS))',zmeanS']);
-btargetednonhubs = regress([actinvdegS-meanS]',[ones(size(zmeanS))',zmeanS']);
+brandom = regress([randomdegS-meanS]',[ones(size(meanS))',meanS']);
+btargetedhubs = regress([actdegS-meanS]',[ones(size(meanS))',meanS']);
+btargetednonhubs = regress([actinvdegS-meanS]',[ones(size(meanS))',meanS']);
 
 figure('Units','inches','position',[10 10 3 2.3]);hold on;
-plot(zmeanS,actdegS-meanS,'LineWidth',3,'color','r','LineStyle' ,'--');
-plot(zmeanS,randomdegS-meanS,'LineWidth',3,'color','c','LineStyle' ,'--');
-plot(zmeanS,actinvdegS-meanS,'LineWidth',3,'color','g','LineStyle' ,'--');
+plot(meanS,actdegS-meanS,'LineWidth',3,'color','r','LineStyle' ,'--');
+plot(meanS,randomdegS-meanS,'LineWidth',3,'color','c','LineStyle' ,'--');
+plot(meanS,actinvdegS-meanS,'LineWidth',3,'color','g','LineStyle' ,'--');
 
 hline = refline(brandom(2),brandom(1));hline.Color = 'c';hline.LineStyle = '-';
 hline = refline(btargetedhubs(2),btargetedhubs(1));hline.Color = 'r';hline.LineStyle = '-';
@@ -39,7 +39,7 @@ text(0.7,0.8,sprintf('\\kappa_{s}=%1.3f',btargetedhubs(2)),'units','normalized',
 text(0.7,0.9,sprintf('\\kappa_{s}=%1.3f',btargetednonhubs(2)),'units','normalized','color','g','FontWeight','Bold');
 
 legend('Targeted attack at hubs','Random attack','Targeted attack at non-hubs','location','SE');legend('boxoff');
-ylabel({'Difference in strength'; 'from reference'});xlabel('Reference strength (zscore)');
+ylabel({'Difference in strength'; 'from reference'});xlabel('Reference strength');
 set(gca,'FontWeight','Bold','FontSize',10);
 title('Original');
  print('./Figures/hubdisruptiondemo_Achard','-dpdf');

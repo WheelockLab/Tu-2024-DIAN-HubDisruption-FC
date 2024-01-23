@@ -17,17 +17,28 @@ library(dplyr)
 library(ggplot2)
 library(lme4)
 library(lmerTest)
-setwd("/Volumes/wheelock/people/Cindy/DIAN/Final")
-HDI = read.csv('./HDI_individual_acrossthreS(z-score).csv')
-covariates = read.csv('./regression_covariates.csv')
+#setwd("/Volumes/wheelock/people/Cindy/PublicRepo/DIAN-HubDisruption")
+setwd('X:/people/Cindy/PublicRepo/DIAN-HubDisruption')
+#HDI = read.csv('./Data/HDI_individual_acrossthreS_Z.csv')
+#HDI = read.csv('./Data/HDI_individual_acrossthrePc_Pc(z-score).csv')
+HDI = read.csv('./Data/HDI_individual_acrossthreS_S(z-score).csv')
+#HDI = read.csv('./Data/AchardHDI/HDI_individual_acrossthreS_S.csv')
+
+covariates = read.csv('./Data/regression_covariates.csv')
 ```
 # get data structure
 ```{r makedf}
-df_all=data.frame(covariates$CCS,covariates$PIB_fSUVR_rsf_TOT_CORTMEAN,HDI$thre5,covariates$Sex.M.,covariates$EYO,covariates$Education,covariates$DVARS,covariates$Minutes,covariates$Age,factor(covariates$fam_mutation),factor(covariates$mutation),covariates$MMSE,covariates$MEMUNITS,covariates$WAIS,covariates$WORDDEL,covariates$family)
-names(df_all)<-c("CCS","PIB","HDI","Sex_M","EYO","Education","DVARS","Minutes","Age","fam_mutation","mutation","MMSE","MEMUNITS","WAIS","WORDDEL","family")
+df_all=data.frame(covariates$CCS,covariates$PIB_fSUVR_rsf_TOT_CORTMEAN,HDI$X5,covariates$Sex.M.,covariates$EYO,covariates$Education,covariates$FD,covariates$Minutes,covariates$Age,factor(covariates$fam_mutation),factor(covariates$mutation),covariates$family)
+names(df_all)<-c("CCS","PIB","HDI","Sex_M","EYO","Education","FD","Minutes","Age","fam_mutation","mutation","family")
 
-df_MC<-filter(df_all,mutation==1)
-df_NC<-filter(df_all,mutation==0)
+idx = !is.nan(covariates$PIB_fSUVR_rsf_TOT_CORTMEAN)&!is.nan(covariates$CCS)
+df_MC<-filter(df_all[idx,],mutation==1)
+df_NC<-filter(df_all[idx,],mutation==0)
+
+idx2 = !is.nan(covariates$CCS)
+df_MC_validCCS<-filter(df_all[idx2,],mutation==1)
+
+df_all<-df_all[idx,]
 
 mc_clr <- rgb(0.8471,0.7020,0.3961)
 nc_clr <- rgb(0.3529,0.7059,0.6745)
@@ -37,51 +48,87 @@ nc_clr <- rgb(0.3529,0.7059,0.6745)
 
 # let's do table 3 first (there are a few attempts at the end for that too with different models)
 ```{r linear mixed model with the random effect of family}
+
 model <- lmer(CCS~
-+ Sex_M
 + HDI
++ Education
 + Age
-+ DVARS
-+ Education+(1| family), data = df_MC)
++ Sex_M
++ FD
++(1| family), data = df_MC_validCCS)
 summary(model)
 
-null_model <- lmer(CCS~
-+ Sex_M
+# null_model <- lmer(CCS~
+# + Sex_M
+# + Age
+# + FD
+# + Education+(1| family), data = df_MC_validCCS)
+# 
+# anova(model,null_model)
+```
+```{r residual plot - Figure 5D}
+model1<- lmer(CCS~
++ Education
 + Age
-+ DVARS
-+ Education+(1| family), data = df_MC)
++ Sex_M
++ FD
++(1| family), data = df_MC_validCCS)
+model2<- lmer(HDI~
++ Education
++ Age
++ Sex_M
++ FD
++(1| family), data = df_MC_validCCS)
+resid_CCS = residuals(model1)
+resid_HDI = residuals(model2)
+added_variable_plots<-data.frame(resid_CCS=resid_CCS,resid_HDI=resid_HDI)
 
-anova(model,null_model)
+```
+```{r plot partial regression 2}
+library(ggplot2)
+theme_set(theme_classic(base_size = 20))
+one <- ggplot(added_variable_plots,aes(x = resid_HDI, y = resid_CCS,color = 'MC')) +
+  geom_point() + 
+  geom_smooth(method = 'lm', color = rgb(0.8471,0.7020,0.3961),fill = rgb(0.8471,0.7020,0.3961)) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+  theme(plot.subtitle = element_text(hjust = 0.5)) +
+  xlab(expression(kappa["S"]~"(residuals)")) +
+  ylab("CCS \n (residuals)")+
+  scale_color_manual(name = "Subjects", 
+                      breaks = c("MC"), 
+                      values = c( "MC" = rgb(0.8471,0.7020,0.3961)),
+                      labels = c("MC"))
+one
 ```
 
-```{r random effect of family?}
-set.seed(10)
-gamm_model <-gamm(CCS~
-+ Sex_M
-+ Age
-+ HDI
-+ DVARS
-+ Education,
-random=list(family=~1),
-data=df_MC, method="REML"
-)
-summary(gamm_model$lme)
-summary(gamm_model$gam)
-random_effects<-ranef(gamm_model$lme)
-plot(random_effects)
-```
-# Section A: Regression of variables on EYO Figure 5
+# ```{r random effect of family?}
+# set.seed(10)
+# gamm_model <-gamm(CCS~
+# + Sex_M
+# + Age
+# + HDI
+# + Education,
+# random=list(family=~1),
+# data=df_MC, method="REML"
+# )
+# summary(gamm_model$lme)
+# summary(gamm_model$gam)
+# random_effects<-ranef(gamm_model$lme)
+# plot(random_effects)
+# ```
+
+#Section A: Regression of variables on EYO Figure 5
 ```{r fit GAMM} 
 #lme + gam
 xvarname = 'EYO'
-yvarname = 'PiB'#expression(kappa [s])
+yvarname = expression(kappa [s])#'CCS' # expression(kappa [s])#'PiB'#expression(kappa [s])#'CCS'#'CCS'
 set.seed(10)
-gamm_model <-gamm(PIB~
+gamm_model <-gamm(HDI~
 mutation
 + s(EYO, by=mutation)
 + Sex_M
 + Education,
-random=list(fam_id=~1),
+random=list(family=~1),
 data=df_all, method="REML"
 )
 
@@ -126,11 +173,13 @@ get_splineBasedCI <- function(Model, Forecast_DF){
 ```{r confint}
 # simultaneous confidence interval https://fromthebottomoftheheap.net/2016/12/15/simultaneous-interval-revisited/
 # New data frame for 'EYO' values
+n = length(seq(-36, 21, by = 0.1))
+
 newdata <- with(df_all, data.frame(
-  EYO = rep(seq(min(EYO), max(EYO), length.out = 100), 2),  # sequence from min to max of 'EYO'
-  Sex_M = rep(c("true", "false"), each = 100),
-  DVARS = rep(median(DVARS), 200),
-  Education = rep(median(Education), 200)  # using median or any other constant value
+  EYO = rep(seq(-36, 21, by = 0.1), 2),
+  #EYO = rep(seq(min(EYO), max(EYO), length.out = 100), 2),  # sequence from min to max of 'EYO'
+  Sex_M = rep(c("true", "false"), each = n),#100
+  Education = rep(median(Education), n)  # using median or any other constant value
   # repeat for other covariates, if any
 ))
 # Add 'mutation' groups
@@ -140,15 +189,15 @@ newdata_NC$mutation <- 0  # For the first group
 newdata_MC <-newdata
 newdata_MC$mutation <- 1  # For the second group
 
-pred_NC_M <- get_splineBasedCI(gam_mod_all,newdata_NC[1:100,])
-pred_NC_F <- get_splineBasedCI(gam_mod_all,newdata_NC[101:200,])
+pred_NC_M <- get_splineBasedCI(gam_mod_all,newdata_NC[1:n,])
+pred_NC_F <- get_splineBasedCI(gam_mod_all,newdata_NC[(n+1):(2*n),])
 pred_NC<-pred_NC_M
 pred_NC$lwrP = (pred_NC_M$lwrP+pred_NC_F$lwrP)/2
 pred_NC$lwrS = (pred_NC_M$lwrS+pred_NC_F$lwrS)/2
 pred_NC$uprP = (pred_NC_M$uprP+pred_NC_F$uprP)/2
 pred_NC$uprS = (pred_NC_M$uprS+pred_NC_F$uprS)/2
-pred_MC_M <- get_splineBasedCI(gam_mod_all,newdata_MC[1:100,])
-pred_MC_F <- get_splineBasedCI(gam_mod_all,newdata_MC[101:200,])
+pred_MC_M <- get_splineBasedCI(gam_mod_all,newdata_MC[1:n,])
+pred_MC_F <- get_splineBasedCI(gam_mod_all,newdata_MC[(n+1):(2*n),])
 pred_MC<-pred_MC_M
 pred_MC$lwrP = (pred_MC_M$lwrP+pred_MC_F$lwrP)/2
 pred_MC$lwrS = (pred_MC_M$lwrS+pred_MC_F$lwrS)/2
@@ -175,6 +224,109 @@ pred_NC$EYO[pred_NC$uprS<pred_MC$lwrS][1]
 ```
 
 
+```{r boostrap EYO divergence point}
+n = length(seq(-36, 21, by = 0.1))
+
+newdata <- with(df_all, data.frame(
+  EYO = rep(seq(-36, 21, by = 0.1), 2),
+  #EYO = rep(seq(min(EYO), max(EYO), length.out = 100), 2),  # sequence from min to max of 'EYO'
+  Sex_M = rep(c("true", "false"), each = n),#100
+  Education = rep(median(Education), n)  # using median or any other constant value
+  # repeat for other covariates, if any
+))
+# Add 'mutation' groups
+newdata_NC <- newdata
+newdata_NC$mutation <- 0  # For the first group
+
+newdata_MC <-newdata
+newdata_MC$mutation <- 1  # For the second group
+#set.seed(123)
+nboot<-100
+divergencepoint_HDI <-numeric(nboot)
+divergencepoint_CCS <-numeric(nboot)
+divergencepoint_PIB <-numeric(nboot)
+for (iboot in 1:nboot){
+  print(iboot)
+  set.seed(as.integer(Sys.time()))
+  bootstrap_sample <- df_all[sample(1:nrow(df_all),160,replace = FALSE),]
+  
+  gamm_model <-gamm(HDI~
+                      mutation
+                    + s(EYO, by=mutation)
+                    + Sex_M
+                    + Education,
+                    random=list(family=~1),
+                    data=bootstrap_sample, method="REML"
+  )
+  gam_mod_boot<-gamm_model$gam
+  pred_NC_M <- get_splineBasedCI(gam_mod_boot,newdata_NC[1:n,])
+  pred_NC_F <- get_splineBasedCI(gam_mod_boot,newdata_NC[(n+1):(2*n),])
+  pred_NC<-pred_NC_M
+  pred_NC$lwrP = (pred_NC_M$lwrP+pred_NC_F$lwrP)/2
+  pred_NC$lwrS = (pred_NC_M$lwrS+pred_NC_F$lwrS)/2
+  pred_NC$uprP = (pred_NC_M$uprP+pred_NC_F$uprP)/2
+  pred_NC$uprS = (pred_NC_M$uprS+pred_NC_F$uprS)/2
+  pred_MC_M <- get_splineBasedCI(gam_mod_boot,newdata_MC[1:n,])
+  pred_MC_F <- get_splineBasedCI(gam_mod_boot,newdata_MC[(n+1):(2*n),])
+  pred_MC<-pred_MC_M
+  pred_MC$lwrP = (pred_MC_M$lwrP+pred_MC_F$lwrP)/2
+  pred_MC$lwrS = (pred_MC_M$lwrS+pred_MC_F$lwrS)/2
+  pred_MC$uprP = (pred_MC_M$uprP+pred_MC_F$uprP)/2
+  pred_MC$uprS = (pred_MC_M$uprS+pred_MC_F$uprS)/2
+  divergencepoint_HDI[iboot]<-pred_NC$EYO[pred_NC$lwrS>pred_MC$uprS][1]
+  
+  gamm_model <-gamm(CCS~
+                      mutation
+                    + s(EYO, by=mutation)
+                    + Sex_M
+                    + Education,
+                    random=list(family=~1),
+                    data=bootstrap_sample, method="REML"
+  )
+  gam_mod_boot<-gamm_model$gam
+  pred_NC_M <- get_splineBasedCI(gam_mod_boot,newdata_NC[1:n,])
+  pred_NC_F <- get_splineBasedCI(gam_mod_boot,newdata_NC[(n+1):(2*n),])
+  pred_NC<-pred_NC_M
+  pred_NC$lwrP = (pred_NC_M$lwrP+pred_NC_F$lwrP)/2
+  pred_NC$lwrS = (pred_NC_M$lwrS+pred_NC_F$lwrS)/2
+  pred_NC$uprP = (pred_NC_M$uprP+pred_NC_F$uprP)/2
+  pred_NC$uprS = (pred_NC_M$uprS+pred_NC_F$uprS)/2
+  pred_MC_M <- get_splineBasedCI(gam_mod_boot,newdata_MC[1:n,])
+  pred_MC_F <- get_splineBasedCI(gam_mod_boot,newdata_MC[(n+1):(2*n),])
+  pred_MC<-pred_MC_M
+  pred_MC$lwrP = (pred_MC_M$lwrP+pred_MC_F$lwrP)/2
+  pred_MC$lwrS = (pred_MC_M$lwrS+pred_MC_F$lwrS)/2
+  pred_MC$uprP = (pred_MC_M$uprP+pred_MC_F$uprP)/2
+  pred_MC$uprS = (pred_MC_M$uprS+pred_MC_F$uprS)/2
+  divergencepoint_CCS[iboot]<-pred_NC$EYO[pred_NC$lwrS>pred_MC$uprS][1]
+  
+  gamm_model <-gamm(PIB~
+                      mutation
+                    + s(EYO, by=mutation)
+                    + Sex_M
+                    + Education,
+                    random=list(family=~1),
+                    data=bootstrap_sample, method="REML"
+  )
+  gam_mod_boot<-gamm_model$gam
+  pred_NC_M <- get_splineBasedCI(gam_mod_boot,newdata_NC[1:n,])
+  pred_NC_F <- get_splineBasedCI(gam_mod_boot,newdata_NC[(n+1):(2*n),])
+  pred_NC<-pred_NC_M
+  pred_NC$lwrP = (pred_NC_M$lwrP+pred_NC_F$lwrP)/2
+  pred_NC$lwrS = (pred_NC_M$lwrS+pred_NC_F$lwrS)/2
+  pred_NC$uprP = (pred_NC_M$uprP+pred_NC_F$uprP)/2
+  pred_NC$uprS = (pred_NC_M$uprS+pred_NC_F$uprS)/2
+  pred_MC_M <- get_splineBasedCI(gam_mod_boot,newdata_MC[1:n,])
+  pred_MC_F <- get_splineBasedCI(gam_mod_boot,newdata_MC[(n+1):(2*n),])
+  pred_MC<-pred_MC_M
+  pred_MC$lwrP = (pred_MC_M$lwrP+pred_MC_F$lwrP)/2
+  pred_MC$lwrS = (pred_MC_M$lwrS+pred_MC_F$lwrS)/2
+  pred_MC$uprP = (pred_MC_M$uprP+pred_MC_F$uprP)/2
+  pred_MC$uprS = (pred_MC_M$uprS+pred_MC_F$uprS)/2
+  divergencepoint_PIB[iboot]<-pred_NC$EYO[pred_NC$uprS<pred_MC$lwrS][1]
+  
+}
+```
 
 ```{r plot}
 
