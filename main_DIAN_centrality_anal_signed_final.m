@@ -1,7 +1,9 @@
 %% main_DIAN_centrality_anal_signed
 % data available upon request from Dominantly Inherited Alzhiemer Network
 % Consortium
-clear;close all;
+% savedir = './postcovbat_individual_signed_mst_0.10_Z_';
+% function main_DIAN_centrality_anal_signed_final(savedir)
+% clear;close all;
 here = pwd;
 
 cd '/data/wheelock/data1/people/Cindy/DIAN'
@@ -14,7 +16,7 @@ subjectdata = readtable('/data/wheelock/data1/people/Cindy/DIAN/MRI_subjectlist_
 subjectdata(exclusion_id,:)=[];
 
 % savedir = './postcovbat_individual_signed_complete_Z_';
-savedir = './postcovbat_individual_signed_mst_0.05_Z_';
+
 Centrality = load(fullfile(savedir,'Centrality.mat'));
 Centrality = Util.excludesubjects(Centrality,exclusion_id); 
 fs = fields(Centrality);
@@ -28,6 +30,7 @@ fs = fields(bindata);
 for i = 1:length(fs)
     eval([fs{i},'=','bindata.',fs{i},';'])
 end
+grouplabel{3} = strrep(grouplabel{3},'>=','\geq')
 
 load(fullfile(savedir,'RealNets.mat'));
 rmatGroupMean(:,:,exclusion_id)=[];
@@ -54,7 +57,7 @@ Scorr = reshape(Scorr,size(S));
 model = fitlm(X(:),Pc(:));
 Pccorr = model.Residuals.raw+model.Coefficients.Estimate(1);
 Pccorr = reshape(Pccorr,size(Pc));
-warning('Pc not corrected');
+warning('Pc not corrected yet');
 
 FC = reshape(rmatGroupMean,[],Nsubj)';
 X = repmat(subjectdata.totalMinutes,1,length(UDidx));
@@ -94,3 +97,4 @@ betweenS(isnan(betweenS))=0;
 cd(here)
 %% plot figures
 return
+% end

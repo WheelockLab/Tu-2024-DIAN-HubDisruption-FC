@@ -17,7 +17,7 @@ Z_ref = mean(Z(refgroup,:));
 %% Plot 
 clear ax
 figure('position',[100 100 650 400]);
-hubness = 'S';
+hubness = 'Z';
 count = 0;
 for igroup = [1:6]
     count = count+1;
