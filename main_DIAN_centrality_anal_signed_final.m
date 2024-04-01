@@ -3,11 +3,12 @@
 % Consortium
 % savedir = './postcovbat_individual_signed_mst_0.10_Z_';
 % function main_DIAN_centrality_anal_signed_final(savedir)
-% clear;close all;
+clear;close all;
 here = pwd;
-
+addpath(here)
 cd '/data/wheelock/data1/people/Cindy/DIAN'
 %% Load data and correct for data amount
+
 allROI = readtable('DIAN_Seitzman_246.xlsx');
 exclusion_id = [72,145];% the two subjects that are the only ones for their sites
 load('IM_13nets_246_newcolor_MNI.mat'); % load parcellation based on Seitzman 2020 300 ROI
@@ -15,7 +16,15 @@ load('IM_13nets_246_newcolor_MNI.mat'); % load parcellation based on Seitzman 20
 subjectdata = readtable('/data/wheelock/data1/people/Cindy/DIAN/MRI_subjectlist_N207_240105.xlsx');
 subjectdata(exclusion_id,:)=[];
 
+load('./Data/ROIv_207.mat')
+ROIv(:,exclusion_id) = [];
+ROIv = ROIv';
+
 % savedir = './postcovbat_individual_signed_complete_Z_';
+
+savedir = './postcovbat_individual_signed_mst_0.05_Z_';
+% savedir = './individual_signed_mst_0.05_Z_';
+% savedir = './postcovbat_truncated_individual_signed_mst_0.05_Z_excludist0mm';
 
 Centrality = load(fullfile(savedir,'Centrality.mat'));
 Centrality = Util.excludesubjects(Centrality,exclusion_id); 
@@ -49,21 +58,27 @@ end
 
 
 % Correcting for num of minutes - N.B.the zscores of S and Scorr are the same
+% X = repmat(subjectdata.totalMinutes,1,Nroi);
+% model = fitlm(X(:),S(:));
+% Scorr = model.Residuals.raw+model.Coefficients.Estimate(1);
+% Scorr = reshape(Scorr,size(S));
+% 
+% model = fitlm(X(:),Pc(:));
+% Pccorr = model.Residuals.raw+model.Coefficients.Estimate(1);
+% Pccorr = reshape(Pccorr,size(Pc));
+% warning('Pc not corrected yet');
+
+% Correcting for num of minutes and ROI volume- N.B.the zscores of S and Scorr are the same
 X = repmat(subjectdata.totalMinutes,1,Nroi);
-model = fitlm(X(:),S(:));
+model = fitlm([X(:),ROIv(:)],S(:));
 Scorr = model.Residuals.raw+model.Coefficients.Estimate(1);
 Scorr = reshape(Scorr,size(S));
 
-model = fitlm(X(:),Pc(:));
+X = repmat(subjectdata.totalMinutes,1,Nroi);
+model = fitlm([X(:),ROIv(:)],Pc(:));
 Pccorr = model.Residuals.raw+model.Coefficients.Estimate(1);
 Pccorr = reshape(Pccorr,size(Pc));
 warning('Pc not corrected yet');
-
-FC = reshape(rmatGroupMean,[],Nsubj)';
-X = repmat(subjectdata.totalMinutes,1,length(UDidx));
-model = fitlm(X(:),Util.unroll(FC(:,UDidx)));
-FCUD_corr = model.Residuals.raw+model.Coefficients.Estimate(1);
-FCUD_corr = reshape(FCUD_corr,size(X));
 
 %% Intermodule and intramodule strength
 
@@ -78,21 +93,22 @@ for isubj = 1:size(rmat0,3)
     correctnanpos = sum(tmppos);correctnanpos(isnan(correctnanpos)) = 0;
     correctnanneg = (sum(tmpneg));correctnanneg(isnan(correctnanneg)) = 0;
     withinS_raw(isubj,:) = correctnanpos-normcoef(isubj,:).*correctnanneg;
-    withinS(isubj,:) = withinS_raw(isubj,:)./sum(M==1&tmp>0);
+    withinS(isubj,:) = withinS_raw(isubj,:)./(sum(M==1)-1);%sum(M==1&tmp>0);
 
     correctnanpos = BCT.module_degree_zscore(tmp.*(tmp>0),IM.key(:,2))';correctnanpos(isnan(correctnanpos)) = 0; % I think technically they got the same result because it is using within K only
     correctnanneg =BCT.module_degree_zscore(-tmp.*(tmp<0),IM.key(:,2))';correctnanneg(isnan(correctnanpos)) = 0;
     Z(isubj,:) =  correctnanpos-normcoef(isubj,:).*correctnanneg;
-    
-    tmppos = tmp.*(M==0&tmp>0);
-    tmpneg = -tmp.*(M==0&tmp<0);
-    correctnanpos = sum(tmppos);correctnanpos(isnan(correctnanpos)) = 0;
-    correctnanneg = (sum(tmpneg));correctnanneg(isnan(correctnanneg)) = 0;
-    betweenS_raw(isubj,:) = correctnanpos-normcoef(isubj,:).*correctnanneg;
-    betweenS(isubj,:) = betweenS_raw(isubj,:)./sum(M==0&tmp>0);
 end
 withinS(isnan(withinS))=0;
-betweenS(isnan(betweenS))=0;
+
+% correcting for ROI volume- N.B.the zscores of S and Scorr are the same
+model = fitlm(ROIv(:),Z(:));
+Zcorr = model.Residuals.raw+model.Coefficients.Estimate(1);
+Zcorr = reshape(Zcorr,size(Z));
+
+model = fitlm(ROIv(:),withinS(:));
+withinScorr = model.Residuals.raw+model.Coefficients.Estimate(1);
+withinScorr = reshape(withinScorr,size(withinS));
 
 cd(here)
 %% plot figures

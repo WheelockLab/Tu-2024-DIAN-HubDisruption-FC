@@ -2,19 +2,19 @@
 
 cmap = BrBG_cmap(8);cmap = cmap([6:8,3:-1:1],:);
 
-[p_MC,HDI.slope,HDI.intercept,HDI.p,HDI.R2,HDI.slopeupper,HDI.slopelower,HDI.interceptupper,HDI.interceptlower,HDI.r] = deal(NaN(4,1));
-[ypred,yci] = deal(cell(1,8));
-
 refgroup = bins==4;
 refgroupstr = 'YoungNC';
 
 S = Scorr;
 Pc = Pccorr;
+Z = Zcorr;
 
 S_ref = mean(S(refgroup,:));
 Pc_ref = mean(Pc(refgroup,:));
 Z_ref = mean(Z(refgroup,:));
 %% Plot 
+[p_MC,HDI.slope,HDI.intercept,HDI.p,HDI.R2,HDI.slopeupper,HDI.slopelower,HDI.interceptupper,HDI.interceptlower,HDI.r] = deal(NaN(4,1));
+[ypred,yci] = deal(cell(1,8));
 clear ax
 figure('position',[100 100 650 400]);
 hubness = 'Z';
@@ -90,7 +90,7 @@ tbl.agebin = repelem([1:6],Nroi)';
 tbl.difference = cell2mat(differencetest)';
 tbl.ref = repmat(m2,1,6)';
 
-idx = (tbl.agebin==2|tbl.agebin==3);
+idx = (tbl.agebin==3|tbl.agebin==1);
 mdl = fitlm([tbl.ref(idx),tbl.agebin(idx)==3],tbl.difference(idx),'interactions')
 anova_stats = anova(mdl)
 partialetasq = anova_stats.SumSq(end-1)/(anova_stats.SumSq(end-1)+anova_stats.SumSq(end))
@@ -100,7 +100,7 @@ abetanegCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & subjectdata.PIB_
 grouplabel{7} = 'A\beta-';grouplabel{8}='A\beta+';
 clear ax
 figure('position',[100 100 650 400]);
-hubness = 'S';
+% hubness = 'S';
 count = 0;
 for igroup = 7:8 % abeta+ or abeta-
     count = count+1;
@@ -168,8 +168,6 @@ ylabel(sprintf('%% %s difference',mstr));
 differencetest = [mean(m(abetanegCDR0,:)./mref-1)';mean(m(abetaposCDR0,:)./mref-1)'];
 mdl = fitlm([repmat(m2',2,1),[zeros(Nroi,1);ones(Nroi,1)]],differencetest,'interactions');
 anova_stats = anova(mdl)
-
-
 %% calculate individual HDI with the reference group defined    
 [p_MC,HDI.slope,HDI.intercept,HDI.p,HDI.R2,HDI.slopeupper,HDI.slopelower,HDI.interceptupper,HDI.interceptlower,HDI.r] = deal(NaN(Nsubj,1));
 
@@ -236,7 +234,7 @@ xtickangle(45)
 ylabel('\kappa_S');
 set(gca,'FontSize',15,'FontWeight','Bold')
 
-comparewhat = 1;
+comparewhat = 2;
 switch comparewhat
     case 1
         % ANOVA + star across groups
@@ -344,7 +342,6 @@ linkaxes(ax);
 % legend(h(4:6),grouplabel(4:6),'location','northeastoutside');
 % print(gcf,fullfile(savedir,['Kappa',mstr2,'_jitterplot3(CDRyoungref)_NConly']),'-dpdf'); % comparing pairwise
 % % print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot3(CDRyoungref)_separatebymutation']),'-dpdf'); % comparing pairwise
-
 %% Plot amyloid + and amyloid - MC CDR = 0 (checked with Util.normality test that the distribution is still normal)
 abetaposCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & subjectdata.PIB_fSUVR_rsf_TOT_CORTMEAN>1.42;
 abetanegCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & subjectdata.PIB_fSUVR_rsf_TOT_CORTMEAN<=1.42;
@@ -398,7 +395,6 @@ ylim([-40,40])
 [h,p,ci,stats] = ttest2(mval(abetaposCDR0),mval(abetanegCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
 d = Util.computeCohen_d(mval(abetaposCDR0),mval(abetanegCDR0),'independent')
 % print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_abeta']),'-dpdf'); % comparing pairwise
-
 %% Plot e4 + and e4 - MC CDR = 0 (checked with Util.normality test that the distribution is still normal)
 e4status = any(subjectdata.apoe==[24,34,44],2);
 apoe4posCDR0=subjectdata.mutation==1 & subjectdata.cdrglob==0 & e4status;
@@ -451,4 +447,4 @@ set(gca,'FontSize',12,'FontWeight','Bold');
 
 [h,p] = ttest2(mval(apoe4posCDR0),mval(apoe4negCDR0)) % this test for whether the Abeta+ and - groups are the same and they are not significantly different
 
-print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_apoe4']),'-dpdf'); % comparing pairwise
+% print(gcf,fullfile(savedir,['Kappa',mstr,'_',mstr2,'_jitterplot(CDRyoungref)_MC_CDR0_apoe4']),'-dpdf'); % comparing pairwise
